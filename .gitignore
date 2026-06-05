@@ -1,0 +1,20 @@
+# Build artifacts
+/target/
+
+# IDE
+.vscode/
+.idea/
+
+# Python venv
+python_bench/__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test suite (large git submodule, clone separately)
+tests/test_suite/
+
+# Benchmark output
+/criterion/
