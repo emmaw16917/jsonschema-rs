@@ -65,18 +65,18 @@ static JSON_POINTER_RE: LazyLock<Regex> =
 
 fn validate_format_value(format: &str, value: &str) -> bool {
     match format {
-        // Dates & times — simple regex validation
+        // Dates & times — regex validation
         "date" => DATE_RE.is_match(value),
         "time" => TIME_RE.is_match(value),
         "date-time" => DATE_TIME_RE.is_match(value),
 
-        // Email
+        // Email — regex validation
         "email" => EMAIL_RE.is_match(value),
+        "idn-email" => EMAIL_RE.is_match(value), // simplified
 
         // Hostnames
         "hostname" => HOSTNAME_RE.is_match(value) && value.len() <= 253,
         "idn-hostname" => true, // IDN hostnames tricky — accept for now
-        "idn-email" => EMAIL_RE.is_match(value), // simplified
 
         // IP addresses
         "ipv4" => {
@@ -104,7 +104,6 @@ fn validate_format_value(format: &str, value: &str) -> bool {
         // JSON Pointer
         "json-pointer" => JSON_POINTER_RE.is_match(value) || value.is_empty(),
         "relative-json-pointer" => {
-            // Must be a non-negative integer followed by '#' or a JSON Pointer
             value
                 .split_once('#')
                 .map_or(false, |(num, rest)| {
@@ -120,7 +119,8 @@ fn validate_format_value(format: &str, value: &str) -> bool {
                 || value.contains('M') || value.contains('D')),
 
         // Regex
-        "regex" | "ecmascript-regex" => regex::Regex::new(value).is_ok(),
+        "regex" => regex::Regex::new(value).is_ok(),
+        "ecmascript-regex" => true, // ECMAScript regex — accept (different engine)
 
         // Catch-all for unknown formats — accept
         _ => true,

@@ -30,7 +30,6 @@ impl Keyword for AllOfKeyword {
             let child_errors = ctx.iter_errors(instance, sub_schema);
             for mut err in child_errors {
                 err.schema_path.insert(0, i.to_string());
-                err.schema_path.insert(0, "allOf".into());
                 errors.push(err);
             }
         }
@@ -211,10 +210,7 @@ impl Keyword for ThenKeyword {
             return vec![]; // "if" failed → "then" is skipped
         }
 
-        let mut errors = ctx.iter_errors(instance, then_schema);
-        for err in &mut errors {
-            err.schema_path.insert(0, "then".into());
-        }
+        let errors = ctx.iter_errors(instance, then_schema);
         errors
     }
 }
@@ -247,10 +243,7 @@ impl Keyword for ElseKeyword {
             return vec![]; // "if" passed → "else" is skipped
         }
 
-        let mut errors = ctx.iter_errors(instance, else_schema);
-        for err in &mut errors {
-            err.schema_path.insert(0, "else".into());
-        }
+        let errors = ctx.iter_errors(instance, else_schema);
         errors
     }
 }

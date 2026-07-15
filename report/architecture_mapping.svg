@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 420" width="720" height="420">
+  <defs>
+    <style>
+      text { font-family: Consolas, "Courier New", monospace; }
+      .title { font-size: 14px; font-weight: bold; fill: #333; }
+      .label { font-size: 11px; fill: #555; }
+      .code { font-size: 10.5px; }
+      .py { fill: #306998; font-weight: bold; }
+      .rs { fill: #8B4513; font-weight: bold; }
+      .arrow { stroke: #999; stroke-width: 1.5; marker-end: url(#arrowhead); }
+      .box-python { fill: #E8F0FE; stroke: #306998; stroke-width: 1.5; rx: 6; }
+      .box-rust { fill: #FFF3E0; stroke: #8B4513; stroke-width: 1.5; rx: 6; }
+      .box-header { fill: #F5F5F5; stroke: #CCC; stroke-width: 1; rx: 4; }
+    </style>
+    <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#999" />
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="360" y="24" text-anchor="middle" class="title">架构映射：Python jsonschema → Rust jsonschema-rs</text>
+
+  <!-- Column headers -->
+  <rect x="40" y="40" width="300" height="28" class="box-header"/>
+  <text x="190" y="59" text-anchor="middle" class="py" font-size="13">Python</text>
+  <rect x="380" y="40" width="300" height="28" class="box-header"/>
+  <text x="530" y="59" text-anchor="middle" class="rs" font-size="13">Rust</text>
+
+  <!-- Row 1: protocols.py -->
+  <rect x="40" y="80" width="300" height="38" class="box-python"/>
+  <text x="55" y="97" class="code py">protocols.py</text>
+  <text x="55" y="112" class="label">Validator Protocol（验证器协议）</text>
+  <line x1="340" y1="99" x2="378" y2="99" class="arrow"/>
+  <rect x="380" y="80" width="300" height="38" class="box-rust"/>
+  <text x="395" y="97" class="code rs">keyword/mod.rs</text>
+  <text x="395" y="112" class="label">Keyword trait（关键字 trait）</text>
+
+  <!-- Row 2: validators.py -->
+  <rect x="40" y="126" width="300" height="38" class="box-python"/>
+  <text x="55" y="143" class="code py">validators.py</text>
+  <text x="55" y="158" class="label">create() 工厂函数</text>
+  <line x1="340" y1="145" x2="378" y2="145" class="arrow"/>
+  <rect x="380" y="126" width="300" height="38" class="box-rust"/>
+  <text x="395" y="143" class="code rs">compiler.rs</text>
+  <text x="395" y="158" class="label">ValidatorBuilder + Validator::new()</text>
+
+  <!-- Row 3: _keywords.py -->
+  <rect x="40" y="172" width="300" height="38" class="box-python"/>
+  <text x="55" y="189" class="code py">_keywords.py</text>
+  <text x="55" y="204" class="label">纯函数 generator 验证器</text>
+  <line x1="340" y1="191" x2="378" y2="191" class="arrow"/>
+  <rect x="380" y="172" width="300" height="38" class="box-rust"/>
+  <text x="395" y="189" class="code rs">keyword/*.rs × 7</text>
+  <text x="395" y="204" class="label">Keyword impl（各关键字的 trait 实现）</text>
+
+  <!-- Row 4: exceptions.py -->
+  <rect x="40" y="218" width="300" height="38" class="box-python"/>
+  <text x="55" y="235" class="code py">exceptions.py</text>
+  <text x="55" y="250" class="label">ValidationError 异常类</text>
+  <line x1="340" y1="237" x2="378" y2="237" class="arrow"/>
+  <rect x="380" y="218" width="300" height="38" class="box-rust"/>
+  <text x="395" y="235" class="code rs">error.rs</text>
+  <text x="395" y="250" class="label">ValidationError 结构体 + Display + Serialize</text>
+
+  <!-- Row 5: _types.py -->
+  <rect x="40" y="264" width="300" height="38" class="box-python"/>
+  <text x="55" y="281" class="code py">_types.py</text>
+  <text x="55" y="296" class="label">TypeChecker 类型判断</text>
+  <line x1="340" y1="283" x2="378" y2="283" class="arrow"/>
+  <rect x="380" y="264" width="300" height="38" class="box-rust"/>
+  <text x="395" y="281" class="code rs">types.rs</text>
+  <text x="395" y="296" class="label">TypeChecker + CompiledSchema</text>
+
+  <!-- Row 6: __init__.py -->
+  <rect x="40" y="310" width="300" height="38" class="box-python"/>
+  <text x="55" y="327" class="code py">__init__.py</text>
+  <text x="55" y="342" class="label">公共 API（validate / is_valid）</text>
+  <line x1="340" y1="329" x2="378" y2="329" class="arrow"/>
+  <rect x="380" y="310" width="300" height="38" class="box-rust"/>
+  <text x="395" y="327" class="code rs">lib.rs</text>
+  <text x="395" y="342" class="label">pub fn validate() / pub fn is_valid()</text>
+
+  <!-- Row 7: N/A → main.rs -->
+  <rect x="40" y="356" width="300" height="38" class="box-python" fill="#FAFAFA" stroke-dasharray="4,2"/>
+  <text x="55" y="373" class="label" fill="#999">（无内置 CLI）</text>
+  <text x="55" y="388" class="label" fill="#999">需通过第三方工具或脚本调用</text>
+  <line x1="340" y1="375" x2="378" y2="375" class="arrow"/>
+  <rect x="380" y="356" width="300" height="38" class="box-rust"/>
+  <text x="395" y="373" class="code rs">main.rs</text>
+  <text x="395" y="388" class="label">CLI 工具（clap derive，Rust 新增）</text>
+</svg>

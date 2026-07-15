@@ -12,12 +12,13 @@ regex = "1"
 rayon = "1"
 thiserror = "2"
 
-[dev-dependencies]
-criterion = "0.5"
+[[bin]]
+name = "jsonschema-rs"
+path = "src/main.rs"
 
-[[bench]]
-name = "benchmark"
-harness = false
+[[bin]]
+name = "perf_test"
+path = "src/bin/perf_test.rs"
 
 [profile.release]
 lto = true

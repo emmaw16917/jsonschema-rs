@@ -56,10 +56,7 @@ impl Keyword for ItemsKeyword {
         // items is a schema — apply to remaining elements.
         for (i, item) in arr.iter().enumerate().skip(prefix_len) {
             let child_errors = ctx.descend(item, items, &i.to_string());
-            for mut err in child_errors {
-                err.schema_path.insert(0, "items".into());
-                errors.push(err);
-            }
+            errors.extend(child_errors);
         }
         errors
     }
@@ -98,7 +95,6 @@ impl Keyword for PrefixItemsKeyword {
             if let Some(item) = arr.get(i) {
                 let child_errors = ctx.descend(item, sub_schema, &i.to_string());
                 for mut err in child_errors {
-                    err.schema_path.insert(0, "prefixItems".into());
                     err.schema_path.insert(0, i.to_string());
                     errors.push(err);
                 }
@@ -238,25 +234,181 @@ impl Keyword for ContainsKeyword {
         ctx: &ValidationContext,
         sub_schema: &Value,
         instance: &Value,
-        _schema: &Value,
+        schema: &Value,
     ) -> Vec<ValidationError> {
         if !ctx.is_type(instance, "array") {
             return vec![];
         }
 
+        // Check if minContains overrides the minimum match count.
+        let min_required = schema
+            .get("minContains")
+            .and_then(|v| {
+                if let Some(u) = v.as_u64() {
+                    Some(u as usize)
+                } else if let Some(f) = v.as_f64() {
+                    if f.fract() == 0.0 && f >= 0.0 {
+                        Some(f as usize)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(1); // default: at least 1 match
+
+        if min_required == 0 {
+            return vec![]; // minContains=0 means always passes
+        }
+
         let arr = instance.as_array().unwrap();
+        let mut match_count = 0;
         for (i, item) in arr.iter().enumerate() {
             let child_errors = ctx.descend(item, sub_schema, &i.to_string());
             if child_errors.is_empty() {
-                return vec![]; // at least one matches
+                match_count += 1;
+                if match_count >= min_required {
+                    return vec![];
+                }
             }
         }
 
-        vec![ValidationError::new(
-            "array does not contain any element matching the schema",
-        )
+        vec![ValidationError::new(format!(
+            "array does not contain enough elements matching the schema (found {}, required at least {})",
+            match_count, min_required
+        ))
         .with_keyword("contains")
         .with_instance(instance.clone())]
+    }
+}
+
+// ---------------------------------------------------------------------------
+// minContains
+// ---------------------------------------------------------------------------
+
+pub struct MinContainsKeyword;
+impl Keyword for MinContainsKeyword {
+    fn name(&self) -> &'static str {
+        "minContains"
+    }
+
+    fn validate(
+        &self,
+        ctx: &ValidationContext,
+        min: &Value,
+        instance: &Value,
+        schema: &Value,
+    ) -> Vec<ValidationError> {
+        // minContains without contains is ignored
+        if schema.get("contains").is_none() {
+            return vec![];
+        }
+        if !ctx.is_type(instance, "array") {
+            return vec![];
+        }
+
+        let arr = instance.as_array().unwrap();
+        let contains = schema.get("contains").unwrap();
+
+        let min_val = match min.as_u64() {
+            Some(v) => v as usize,
+            None => {
+                // Try as f64 if not u64
+                if let Some(f) = min.as_f64() {
+                    if f.fract() == 0.0 && f >= 0.0 {
+                        f as usize
+                    } else {
+                        return vec![];
+                    }
+                } else {
+                    return vec![];
+                }
+            }
+        };
+
+        let mut match_count = 0;
+        for (i, item) in arr.iter().enumerate() {
+            let child_errors = ctx.descend(item, contains, &i.to_string());
+            if child_errors.is_empty() {
+                match_count += 1;
+            }
+        }
+
+        if match_count < min_val {
+            vec![ValidationError::new(format!(
+                "array contains {} matching element(s), but minimum is {}",
+                match_count, min_val
+            ))
+            .with_keyword("minContains")
+            .with_instance(instance.clone())]
+        } else {
+            vec![]
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// maxContains
+// ---------------------------------------------------------------------------
+
+pub struct MaxContainsKeyword;
+impl Keyword for MaxContainsKeyword {
+    fn name(&self) -> &'static str {
+        "maxContains"
+    }
+
+    fn validate(
+        &self,
+        ctx: &ValidationContext,
+        max: &Value,
+        instance: &Value,
+        schema: &Value,
+    ) -> Vec<ValidationError> {
+        // maxContains without contains is ignored
+        if schema.get("contains").is_none() {
+            return vec![];
+        }
+        if !ctx.is_type(instance, "array") {
+            return vec![];
+        }
+
+        let arr = instance.as_array().unwrap();
+        let contains = schema.get("contains").unwrap();
+
+        let max_val = match max.as_u64() {
+            Some(v) => v as usize,
+            None => {
+                if let Some(f) = max.as_f64() {
+                    if f.fract() == 0.0 && f >= 0.0 {
+                        f as usize
+                    } else {
+                        return vec![];
+                    }
+                } else {
+                    return vec![];
+                }
+            }
+        };
+
+        let mut match_count = 0;
+        for (i, item) in arr.iter().enumerate() {
+            let child_errors = ctx.descend(item, contains, &i.to_string());
+            if child_errors.is_empty() {
+                match_count += 1;
+            }
+        }
+
+        if match_count > max_val {
+            vec![ValidationError::new(format!(
+                "array contains {} matching element(s), but maximum is {}",
+                match_count, max_val
+            ))
+            .with_keyword("maxContains")
+            .with_instance(instance.clone())]
+        } else {
+            vec![]
+        }
     }
 }
 

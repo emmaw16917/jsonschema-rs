@@ -178,10 +178,30 @@ impl Keyword for MultipleOfKeyword {
         let divisor = as_f64(multiple);
         let val = as_f64(instance);
         match (divisor, val) {
-            (Some(d), Some(v)) if d != 0.0 => {
-                let remainder = (v / d).fract().abs();
-                // Use a tolerance for floating-point imprecision.
-                if remainder > f64::EPSILON * 100.0 && (1.0 - remainder) > f64::EPSILON * 100.0 {
+            (Some(d), Some(v)) if d != 0.0 && d.is_finite() => {
+                // If divisor is extremely small relative to the value,
+                // floating-point division loses precision. Use a relative
+                // tolerance approach.
+                let quotient = v / d;
+                if !quotient.is_finite() {
+                    // Overflow — value is definitely not a valid multiple
+                    // (e.g., 1e308 / 0.123456789 = inf)
+                    return vec![ValidationError::new(format!(
+                        "{} is not a multiple of {}",
+                        v, d
+                    ))
+                    .with_keyword("multipleOf")
+                    .with_instance(instance.clone())];
+                }
+
+                // Check if quotient is close to an integer.
+                let nearest = quotient.round();
+                let diff = (quotient - nearest).abs();
+
+                // Use a scaled epsilon that accounts for magnitude.
+                let tolerance = f64::EPSILON * quotient.abs().max(1.0) * 100.0;
+
+                if diff > tolerance {
                     vec![ValidationError::new(format!(
                         "{} is not a multiple of {}",
                         v, d
@@ -191,6 +211,10 @@ impl Keyword for MultipleOfKeyword {
                 } else {
                     vec![]
                 }
+            }
+            (Some(d), _) if d == 0.0 => {
+                // multipleOf: 0 — anything is a multiple of 0 in JSON Schema
+                vec![]
             }
             _ => vec![],
         }

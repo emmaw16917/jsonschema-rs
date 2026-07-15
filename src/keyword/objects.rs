@@ -31,7 +31,6 @@ impl Keyword for PropertiesKeyword {
                     // descend into the child instance
                     let child_errors = ctx.descend(prop_value, sub_schema, prop_name);
                     for mut err in child_errors {
-                        err.schema_path.insert(0, "properties".into());
                         err.schema_path.insert(0, prop_name.clone());
                         errors.push(err);
                     }
@@ -151,10 +150,7 @@ impl Keyword for AdditionalPropertiesKeyword {
             } else if additional.is_object() {
                 // additionalProperties with a schema → validate the value
                 let child_errors = ctx.descend(&obj[key], additional, key);
-                for mut err in child_errors {
-                    err.schema_path.insert(0, "additionalProperties".into());
-                    errors.push(err);
-                }
+                errors.extend(child_errors);
             }
             // additionalProperties: true → allow (silent)
         }
@@ -201,7 +197,6 @@ impl Keyword for PatternPropertiesKeyword {
                 if re.is_match(key) {
                     let child_errors = ctx.descend(val, sub_schema, key);
                     for mut err in child_errors {
-                        err.schema_path.insert(0, "patternProperties".into());
                         err.schema_path.insert(0, pattern_str.clone());
                         errors.push(err);
                     }
@@ -240,7 +235,6 @@ impl Keyword for PropertyNamesKeyword {
                 let child_errors = ctx.iter_errors(&key_value, name_schema);
                 for mut err in child_errors {
                     err.instance_path.insert(0, key.clone());
-                    err.schema_path.insert(0, "propertyNames".into());
                     errors.push(err);
                 }
             }
@@ -316,6 +310,173 @@ impl Keyword for MaxPropertiesKeyword {
             }
         }
         vec![]
+    }
+}
+
+// ---------------------------------------------------------------------------
+// dependentRequired
+// ---------------------------------------------------------------------------
+
+pub struct DependentRequiredKeyword;
+impl Keyword for DependentRequiredKeyword {
+    fn name(&self) -> &'static str {
+        "dependentRequired"
+    }
+
+    fn validate(
+        &self,
+        ctx: &ValidationContext,
+        dependents: &Value,
+        instance: &Value,
+        _schema: &Value,
+    ) -> Vec<ValidationError> {
+        if !ctx.is_type(instance, "object") {
+            return vec![];
+        }
+
+        let deps = match dependents.as_object() {
+            Some(d) => d,
+            None => return vec![],
+        };
+
+        let obj = instance.as_object().unwrap();
+        let mut errors = Vec::new();
+
+        for (prop_name, required_arr) in deps {
+            // Only check if the property is present in the instance
+            if !obj.contains_key(prop_name) {
+                continue;
+            }
+
+            let required = match required_arr.as_array() {
+                Some(a) => a,
+                None => continue,
+            };
+
+            for req_val in required {
+                if let Some(key) = req_val.as_str() {
+                    if !obj.contains_key(key) {
+                        errors.push(
+                            ValidationError::new(format!(
+                                "'{}' is present, so '{}' is also required",
+                                prop_name, key
+                            ))
+                            .with_keyword("dependentRequired")
+                            .with_instance(instance.clone()),
+                        );
+                    }
+                }
+            }
+        }
+        errors
+    }
+}
+
+// ---------------------------------------------------------------------------
+// dependentSchemas
+// ---------------------------------------------------------------------------
+
+pub struct DependentSchemasKeyword;
+impl Keyword for DependentSchemasKeyword {
+    fn name(&self) -> &'static str {
+        "dependentSchemas"
+    }
+
+    fn validate(
+        &self,
+        ctx: &ValidationContext,
+        dependents: &Value,
+        instance: &Value,
+        _schema: &Value,
+    ) -> Vec<ValidationError> {
+        if !ctx.is_type(instance, "object") {
+            return vec![];
+        }
+
+        let deps = match dependents.as_object() {
+            Some(d) => d,
+            None => return vec![],
+        };
+
+        let obj = instance.as_object().unwrap();
+        let mut errors = Vec::new();
+
+        for (prop_name, sub_schema) in deps {
+            if !obj.contains_key(prop_name) {
+                continue;
+            }
+
+            let child_errors = ctx.iter_errors(instance, sub_schema);
+            for mut err in child_errors {
+                err.schema_path.insert(0, prop_name.clone());
+                errors.push(err);
+            }
+        }
+        errors
+    }
+}
+
+// ---------------------------------------------------------------------------
+// dependencies (legacy Draft 4/6/7 — compatibility)
+// ---------------------------------------------------------------------------
+
+pub struct DependenciesKeyword;
+impl Keyword for DependenciesKeyword {
+    fn name(&self) -> &'static str {
+        "dependencies"
+    }
+
+    fn validate(
+        &self,
+        ctx: &ValidationContext,
+        dependents: &Value,
+        instance: &Value,
+        _schema: &Value,
+    ) -> Vec<ValidationError> {
+        if !ctx.is_type(instance, "object") {
+            return vec![];
+        }
+
+        let deps = match dependents.as_object() {
+            Some(d) => d,
+            None => return vec![],
+        };
+
+        let obj = instance.as_object().unwrap();
+        let mut errors = Vec::new();
+
+        for (prop_name, dep_value) in deps {
+            // Only check if the property is present in the instance
+            if !obj.contains_key(prop_name) {
+                continue;
+            }
+
+            if let Value::Array(required) = dep_value {
+                // Array form — like dependentRequired
+                for req_val in required {
+                    if let Some(key) = req_val.as_str() {
+                        if !obj.contains_key(key) {
+                            errors.push(
+                                ValidationError::new(format!(
+                                    "'{}' is present, so '{}' is also required",
+                                    prop_name, key
+                                ))
+                                .with_keyword("dependencies")
+                                .with_instance(instance.clone()),
+                            );
+                        }
+                    }
+                }
+            } else {
+                // Schema form — like dependentSchemas
+                let child_errors = ctx.iter_errors(instance, dep_value);
+                for mut err in child_errors {
+                    err.schema_path.insert(0, prop_name.clone());
+                    errors.push(err);
+                }
+            }
+        }
+        errors
     }
 }
 

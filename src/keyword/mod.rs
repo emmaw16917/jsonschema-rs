@@ -80,6 +80,9 @@ impl KeywordRegistry {
         registry.insert(objects::PropertyNamesKeyword);
         registry.insert(objects::MinPropertiesKeyword);
         registry.insert(objects::MaxPropertiesKeyword);
+        registry.insert(objects::DependentRequiredKeyword);
+        registry.insert(objects::DependentSchemasKeyword);
+        registry.insert(objects::DependenciesKeyword);
 
         // --- Arrays ---
         registry.insert(arrays::ItemsKeyword);
@@ -88,6 +91,8 @@ impl KeywordRegistry {
         registry.insert(arrays::MaxItemsKeyword);
         registry.insert(arrays::UniqueItemsKeyword);
         registry.insert(arrays::ContainsKeyword);
+        registry.insert(arrays::MinContainsKeyword);
+        registry.insert(arrays::MaxContainsKeyword);
 
         // --- Applicators ---
         registry.insert(applicator::AllOfKeyword);

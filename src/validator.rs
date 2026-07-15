@@ -208,12 +208,26 @@ impl<'a> ValidationContext<'a> {
                     let keyword_errors =
                         keyword.validate(self, keyword_value, instance, schema);
                     for mut err in keyword_errors {
-                        err.instance_path = self.instance_path.clone();
-                        err.schema_path = {
+                        // Only set instance_path if the keyword didn't already
+                        // populate it (e.g. via descend()).
+                        if err.instance_path.is_empty() {
+                            err.instance_path = self.instance_path.clone();
+                        }
+                        // If the keyword already set schema_path (e.g. nested
+                        // keywords like properties), prepend the parent path;
+                        // otherwise build it from the current context.
+                        if err.schema_path.is_empty() {
+                            err.schema_path = {
+                                let mut sp = self.schema_path.clone();
+                                sp.push(keyword_name.clone());
+                                sp
+                            };
+                        } else {
                             let mut sp = self.schema_path.clone();
                             sp.push(keyword_name.clone());
-                            sp
-                        };
+                            sp.append(&mut err.schema_path.clone());
+                            err.schema_path = sp;
+                        }
                         if err.keyword.is_none() {
                             err.keyword = Some(keyword_name.clone());
                         }
@@ -227,7 +241,7 @@ impl<'a> ValidationContext<'a> {
     }
 
     /// Resolve a `$ref` string, first trying the schema registry (external),
-    /// then JSON Pointer navigation within the root schema (internal).
+    /// then JSON Pointer or $anchor navigation within the root schema (internal).
     fn resolve_ref(&self, ref_val: &str) -> Option<Value> {
         // 1. Try the SchemaRegistry for external refs.
         if let Some(reg) = self.schema_registry {
@@ -236,14 +250,54 @@ impl<'a> ValidationContext<'a> {
             }
         }
 
-        // 2. Fall back to internal JSON Pointer against the root schema.
+        // 2. Fall back to internal resolution against the root schema.
         if ref_val.starts_with('#') {
-            let pointer = ref_val.trim_start_matches('#');
-            if pointer.is_empty() {
+            let fragment = ref_val.trim_start_matches('#');
+            if fragment.is_empty() {
                 return Some(self.compiled.raw.clone());
             }
-            // Use the refs module's JSON pointer resolution.
-            return crate::refs::resolve_pointer(&self.compiled.raw, pointer);
+            // If fragment starts with '/', it's a JSON Pointer.
+            if fragment.starts_with('/') {
+                return crate::refs::resolve_pointer(&self.compiled.raw, fragment);
+            }
+            // Otherwise, treat it as an $anchor reference.
+            return crate::refs::resolve_anchor(&self.compiled.raw, fragment);
+        }
+
+        // 3. Try external refs that are full URIs containing a fragment
+        //    (e.g. "http://example.com/schema.json#foo").
+        if let Some(hash_pos) = ref_val.find('#') {
+            let (uri, fragment) = ref_val.split_at(hash_pos);
+            let fragment = fragment.trim_start_matches('#');
+
+            // Try resolving through the SchemaRegistry for the URI part.
+            if let Some(reg) = self.schema_registry {
+                if let Some(doc) = reg.get(uri) {
+                    if fragment.is_empty() {
+                        return Some(doc.clone());
+                    }
+                    if fragment.starts_with('/') {
+                        return crate::refs::resolve_pointer(doc, fragment);
+                    }
+                    return crate::refs::resolve_anchor(doc, fragment);
+                }
+            }
+
+            // Try finding a subschema with matching $id in the root schema.
+            if let Some(doc) = crate::refs::find_by_id(&self.compiled.raw, uri) {
+                if fragment.is_empty() {
+                    return Some(doc.clone());
+                }
+                if fragment.starts_with('/') {
+                    return crate::refs::resolve_pointer(&doc, fragment);
+                }
+                return crate::refs::resolve_anchor(&doc, fragment);
+            }
+        }
+
+        // 4. Try finding a subschema by $id in the root schema.
+        if let Some(doc) = crate::refs::find_by_id(&self.compiled.raw, ref_val) {
+            return Some(doc.clone());
         }
 
         None
