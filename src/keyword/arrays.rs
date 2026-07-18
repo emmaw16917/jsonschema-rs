@@ -4,10 +4,6 @@ use crate::validator::ValidationContext;
 use serde_json::Value;
 use std::collections::HashSet;
 
-// ---------------------------------------------------------------------------
-// items
-// ---------------------------------------------------------------------------
-
 pub struct ItemsKeyword;
 impl Keyword for ItemsKeyword {
     fn name(&self) -> &'static str {
@@ -27,7 +23,6 @@ impl Keyword for ItemsKeyword {
 
         let arr = instance.as_array().unwrap();
 
-        // Determine where prefixItems ends.
         let prefix_len = schema
             .get("prefixItems")
             .and_then(|v| v.as_array())
@@ -53,7 +48,6 @@ impl Keyword for ItemsKeyword {
             .with_instance(instance.clone())];
         }
 
-        // items is a schema — apply to remaining elements.
         for (i, item) in arr.iter().enumerate().skip(prefix_len) {
             let child_errors = ctx.descend(item, items, &i.to_string());
             errors.extend(child_errors);
@@ -61,10 +55,6 @@ impl Keyword for ItemsKeyword {
         errors
     }
 }
-
-// ---------------------------------------------------------------------------
-// prefixItems
-// ---------------------------------------------------------------------------
 
 pub struct PrefixItemsKeyword;
 impl Keyword for PrefixItemsKeyword {
@@ -104,10 +94,6 @@ impl Keyword for PrefixItemsKeyword {
     }
 }
 
-// ---------------------------------------------------------------------------
-// minItems
-// ---------------------------------------------------------------------------
-
 pub struct MinItemsKeyword;
 impl Keyword for MinItemsKeyword {
     fn name(&self) -> &'static str {
@@ -138,10 +124,6 @@ impl Keyword for MinItemsKeyword {
         vec![]
     }
 }
-
-// ---------------------------------------------------------------------------
-// maxItems
-// ---------------------------------------------------------------------------
 
 pub struct MaxItemsKeyword;
 impl Keyword for MaxItemsKeyword {
@@ -174,10 +156,6 @@ impl Keyword for MaxItemsKeyword {
     }
 }
 
-// ---------------------------------------------------------------------------
-// uniqueItems
-// ---------------------------------------------------------------------------
-
 pub struct UniqueItemsKeyword;
 impl Keyword for UniqueItemsKeyword {
     fn name(&self) -> &'static str {
@@ -200,9 +178,6 @@ impl Keyword for UniqueItemsKeyword {
 
         let arr = instance.as_array().unwrap();
 
-        // serde_json::Value implements Hash + Eq, but NaN handling is tricky.
-        // We build a set of canonical-JSON-encoded strings as a robust dedup
-        // strategy (also matches JSON Schema's value-based uniqueness).
         let mut seen = HashSet::new();
         for item in arr {
             let key = serde_json::to_string(item).unwrap_or_default();
@@ -218,10 +193,6 @@ impl Keyword for UniqueItemsKeyword {
         vec![]
     }
 }
-
-// ---------------------------------------------------------------------------
-// contains
-// ---------------------------------------------------------------------------
 
 pub struct ContainsKeyword;
 impl Keyword for ContainsKeyword {
@@ -240,7 +211,6 @@ impl Keyword for ContainsKeyword {
             return vec![];
         }
 
-        // Check if minContains overrides the minimum match count.
         let min_required = schema
             .get("minContains")
             .and_then(|v| {
@@ -256,10 +226,10 @@ impl Keyword for ContainsKeyword {
                     None
                 }
             })
-            .unwrap_or(1); // default: at least 1 match
+            .unwrap_or(1);
 
         if min_required == 0 {
-            return vec![]; // minContains=0 means always passes
+            return vec![];
         }
 
         let arr = instance.as_array().unwrap();
@@ -283,10 +253,6 @@ impl Keyword for ContainsKeyword {
     }
 }
 
-// ---------------------------------------------------------------------------
-// minContains
-// ---------------------------------------------------------------------------
-
 pub struct MinContainsKeyword;
 impl Keyword for MinContainsKeyword {
     fn name(&self) -> &'static str {
@@ -300,7 +266,6 @@ impl Keyword for MinContainsKeyword {
         instance: &Value,
         schema: &Value,
     ) -> Vec<ValidationError> {
-        // minContains without contains is ignored
         if schema.get("contains").is_none() {
             return vec![];
         }
@@ -314,7 +279,6 @@ impl Keyword for MinContainsKeyword {
         let min_val = match min.as_u64() {
             Some(v) => v as usize,
             None => {
-                // Try as f64 if not u64
                 if let Some(f) = min.as_f64() {
                     if f.fract() == 0.0 && f >= 0.0 {
                         f as usize
@@ -348,10 +312,6 @@ impl Keyword for MinContainsKeyword {
     }
 }
 
-// ---------------------------------------------------------------------------
-// maxContains
-// ---------------------------------------------------------------------------
-
 pub struct MaxContainsKeyword;
 impl Keyword for MaxContainsKeyword {
     fn name(&self) -> &'static str {
@@ -365,7 +325,6 @@ impl Keyword for MaxContainsKeyword {
         instance: &Value,
         schema: &Value,
     ) -> Vec<ValidationError> {
-        // maxContains without contains is ignored
         if schema.get("contains").is_none() {
             return vec![];
         }
@@ -411,10 +370,6 @@ impl Keyword for MaxContainsKeyword {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

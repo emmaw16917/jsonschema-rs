@@ -8,17 +8,9 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-// ---------------------------------------------------------------------------
 // Validator
-// ---------------------------------------------------------------------------
 
-/// A ready-to-use JSON Schema validator.
-///
-/// Construct via `Validator::new(schema)`.  The schema is compiled once and can
-/// then be used to validate many instances efficiently.
-///
-/// Corresponds to a concrete validator class instance in Python
-/// (e.g. `Draft202012Validator(schema)`).
+/// JSON Schema 校验器，schema 编译后可重复校验多个实例。
 #[derive(Clone)]
 pub struct Validator {
     compiled: Arc<CompiledSchema>,
@@ -28,7 +20,7 @@ pub struct Validator {
 }
 
 impl Validator {
-    /// Compile a JSON Schema `Value` into a reusable `Validator`.
+    //编译 JSON Schema 并返回可复用的 `Validator`。
     pub fn new(schema: Value) -> Self {
         let precompiled_patterns = compile_patterns(&schema);
         let compiled = Arc::new(CompiledSchema::new(schema, precompiled_patterns));
@@ -43,33 +35,30 @@ impl Validator {
         }
     }
 
-    /// Compile with a custom `SchemaRegistry` for external `$ref` support.
+    //传入自定义SchemaRegistry以支持外部$ref
     pub fn with_registry(mut self, registry: SchemaRegistry) -> Self {
         self.schema_registry = Some(Arc::new(registry));
         self
     }
 
-    /// Validate `instance` against the compiled schema.
-    ///
-    /// Returns `Ok(())` on success, or the first `ValidationError` on failure.
+    /// 校验实例，成功返回 `Ok(())`，失败返回第一条错误。
     pub fn validate(&self, instance: &Value) -> Result<(), ValidationError> {
         let ctx = self.make_ctx();
         let errors = ctx.iter_errors(instance, &self.compiled.raw);
         errors.into_iter().next().map(Err).unwrap_or(Ok(()))
     }
 
-    /// Returns `true` if `instance` is valid against the schema.
+    /// 实例是否通过校验。
     pub fn is_valid(&self, instance: &Value) -> bool {
         self.validate(instance).is_ok()
     }
 
-    /// Return *all* validation errors (empty Vec → valid).
+    /// 返回所有校验错误（空 Vec 表示通过）。
     pub fn iter_errors(&self, instance: &Value) -> Vec<ValidationError> {
         let ctx = self.make_ctx();
         ctx.iter_errors(instance, &self.compiled.raw)
     }
 
-    /// Build a `ValidationContext` borrowing from our Arc'd data.
     fn make_ctx(&self) -> ValidationContext<'_> {
         let schema_registry_ref = self.schema_registry.as_deref();
         ValidationContext::new(
@@ -80,20 +69,15 @@ impl Validator {
         )
     }
 
-    // -- accessors --------------------------------------------------------
-
-    /// The raw (original) schema JSON.
+    /// 返回原始 schema JSON。
     pub fn schema(&self) -> &Value {
         &self.compiled.raw
     }
 }
 
-// ---------------------------------------------------------------------------
 // Compilation helpers
-// ---------------------------------------------------------------------------
 
-/// Walk the schema tree and pre-compile every `"pattern"` value into a
-/// `Regex`, returning a map from pattern source string → compiled regex.
+/// 遍历 schema 树，预编译所有 `"pattern"` 为正则表达式。
 fn compile_patterns(schema: &Value) -> HashMap<String, Regex> {
     let mut patterns = HashMap::new();
     walk_and_collect_patterns(schema, &mut patterns);
@@ -103,7 +87,6 @@ fn compile_patterns(schema: &Value) -> HashMap<String, Regex> {
 fn walk_and_collect_patterns(node: &Value, patterns: &mut HashMap<String, Regex>) {
     match node {
         Value::Object(obj) => {
-            // If this object has a "pattern" key, compile it.
             if let Some(Value::String(p)) = obj.get("pattern") {
                 if !patterns.contains_key(p) {
                     if let Ok(re) = Regex::new(p) {
@@ -112,7 +95,6 @@ fn walk_and_collect_patterns(node: &Value, patterns: &mut HashMap<String, Regex>
                 }
             }
 
-            // Recurse into all values.
             for val in obj.values() {
                 walk_and_collect_patterns(val, patterns);
             }
@@ -126,9 +108,7 @@ fn walk_and_collect_patterns(node: &Value, patterns: &mut HashMap<String, Regex>
     }
 }
 
-// ---------------------------------------------------------------------------
 // tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

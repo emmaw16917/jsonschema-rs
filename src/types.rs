@@ -2,13 +2,9 @@ use regex::Regex;
 use serde_json::Value;
 use std::collections::HashMap;
 
-/// Pre-compiled schema, holding metadata extracted during compilation.
 #[derive(Debug, Clone)]
 pub struct CompiledSchema {
-    /// The original JSON Schema value.
     pub raw: Value,
-    /// Pre-compiled `pattern` / `patternProperties` regexes, keyed by their
-    /// source string.
     pub precompiled_patterns: HashMap<String, Regex>,
 }
 
@@ -21,24 +17,17 @@ impl CompiledSchema {
     }
 }
 
-/// Alias — both schemas and instances are plain JSON values.
 pub type Instance = Value;
 
-// ---------------------------------------------------------------------------
 // TypeChecker
-// ---------------------------------------------------------------------------
 
-/// Maps JSON Schema type names (e.g. `"string"`, `"integer"`) to predicate
-/// functions that decide whether a given `Value` satisfies that type.
-///
-/// Mirrors Python `jsonschema._types.TypeChecker`.
+//类型名到类型判断函数的映射。
 pub struct TypeChecker {
     types: HashMap<String, Box<dyn Fn(&Value) -> bool + Send + Sync>>,
 }
 
 impl TypeChecker {
-    /// Build the default type checker with the seven JSON Schema primitive
-    /// types.
+    /// 构建包含七种基本类型的默认类型检查器。
     pub fn default() -> Self {
         let mut types: HashMap<String, Box<dyn Fn(&Value) -> bool + Send + Sync>> = HashMap::new();
 
@@ -48,13 +37,11 @@ impl TypeChecker {
         types.insert("array".into(), Box::new(|v| v.is_array()));
         types.insert("string".into(), Box::new(|v| v.is_string()));
 
-        // "number" includes both integers and floats.
         types.insert(
             "number".into(),
             Box::new(|v: &Value| v.is_number()),
         );
 
-        // "integer": must be an i64, or an f64 with zero fractional part.
         types.insert(
             "integer".into(),
             Box::new(|v: &Value| match v {
@@ -75,7 +62,7 @@ impl TypeChecker {
         Self { types }
     }
 
-    /// Register a custom type predicate.
+    //注册自定义类型判断函数。
     pub fn register(
         &mut self,
         name: &str,
@@ -84,7 +71,7 @@ impl TypeChecker {
         self.types.insert(name.to_string(), predicate);
     }
 
-    /// Returns `true` if `instance` satisfies the JSON Schema type `type_name`.
+    //判断 `instance` 是否满足指定的 JSON Schema 类型。
     pub fn is_type(&self, instance: &Value, type_name: &str) -> bool {
         self.types
             .get(type_name)
@@ -93,9 +80,7 @@ impl TypeChecker {
     }
 }
 
-// ---------------------------------------------------------------------------
 // tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

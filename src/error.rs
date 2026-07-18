@@ -2,36 +2,29 @@ use serde::Serialize;
 use serde_json::Value;
 use std::fmt;
 
-/// A single validation error produced when a JSON instance fails to satisfy a
-/// keyword constraint.
-///
-/// Mirrors Python `jsonschema.exceptions.ValidationError`.
+//JSON 实例校验失败时的单条错误。
 #[derive(Debug, Clone, Serialize)]
 pub struct ValidationError {
-    /// Human-readable error message.
     pub message: String,
 
-    /// The keyword that triggered the error (e.g. `"type"`, `"minimum"`).
+    //触发错误的关键字
     #[serde(skip_serializing_if = "Option::is_none")]
     pub keyword: Option<String>,
 
-    /// Location of the error within the *instance* (e.g.
-    /// `["properties", "age"]`).
+    //错误在实例中的位置
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub instance_path: Vec<String>,
 
-    /// Location of the error within the *schema* (e.g.
-    /// `["properties", "age", "minimum"]`).
+    //错误在 schema 中的位置
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub schema_path: Vec<String>,
 
-    /// The fragment of the instance that caused the error (if available).
+    //导致错误的实例片段。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instance: Option<Value>,
 }
 
 impl ValidationError {
-    /// Create a new error with just a message.
     pub fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
@@ -42,13 +35,11 @@ impl ValidationError {
         }
     }
 
-    /// Set the keyword name (builder pattern).
     pub fn with_keyword(mut self, kw: impl Into<String>) -> Self {
         self.keyword = Some(kw.into());
         self
     }
 
-    /// Set the instance value (builder pattern).
     pub fn with_instance(mut self, inst: Value) -> Self {
         self.instance = Some(inst);
         self
@@ -57,7 +48,6 @@ impl ValidationError {
 
 impl fmt::Display for ValidationError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // Format: "/path/to/field: message"
         if self.instance_path.is_empty() {
             write!(f, "{}", self.message)
         } else {
@@ -70,7 +60,7 @@ impl fmt::Display for ValidationError {
     }
 }
 
-/// Convenience helpers for building errors inside keyword implementations.
+/// 快捷宏，用于关键字实现中构建错误。
 #[macro_export]
 macro_rules! validation_error {
     ($msg:expr) => {

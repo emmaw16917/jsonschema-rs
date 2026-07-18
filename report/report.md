@@ -12,9 +12,9 @@
 
 ## 2. 团队成员与分工
 
-| 姓名 | 学号 | 主要负责内容 |
-|------|------|-------------|
-| （待填写） | （待填写） | 项目基础设施：`types.rs`（类型系统）、`compiler.rs`（Schema 编译）、`refs.rs`（\$ref 解析 + \$anchor 支持）；Phase 1 关键字：`assertions`（type/enum/const）、`numeric`（minimum/maximum/multipleOf）、`string`（minLength/maxLength/pattern）；Phase 2 关键字：`applicator`（allOf/anyOf/oneOf/not/if-then-else） |
+| 姓名    | 学号    | 主要负责内容                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ----- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| （待填写） | （待填写） | 项目基础设施：`types.rs`（类型系统）、`compiler.rs`（Schema 编译）、`refs.rs`（\$ref 解析 + \$anchor 支持）；Phase 1 关键字：`assertions`（type/enum/const）、`numeric`（minimum/maximum/multipleOf）、`string`（minLength/maxLength/pattern）；Phase 2 关键字：`applicator`（allOf/anyOf/oneOf/not/if-then-else）                                                                                                                                            |
 | （待填写） | （待填写） | 核心引擎：`validator.rs`（ValidationContext 递归验证）、`error.rs`（错误类型）、`instance.rs`（实例遍历辅助）；Phase 1 关键字：`objects`（properties/required/additionalProperties）、`arrays`（items/minItems/maxItems）；Phase 2 关键字：`objects+`（patternProperties/propertyNames/minProperties/maxProperties/dependentRequired/dependentSchemas）、`arrays+`（uniqueItems/contains/prefixItems/minContains/maxContains）；CLI（`main.rs`）+ 测试 runner + 基准测试 |
 
 > **协作说明**：`keyword/mod.rs` 的 trait 设计、`$ref` 解析、`lib.rs` 公共 API 为二人共同完成。所有代码通过 PR 互审后合并。
@@ -299,10 +299,10 @@ JSON Schema 规范规定：`format` 关键字**默认只产生注解（annotatio
 
 **D. 复杂 \$id 作用域解析（15 个）**
 
-| 测试文件 | 失败数 | 原因 |
-|----------|--------|------|
-| `ref` | 11 | schema 内部 `$id` 改变基 URI 后的嵌套引用链解析 |
-| `anchor` | 4 | `$anchor` 在 `$id` 作用域变化下的查找 |
+| 测试文件     | 失败数 | 原因                                |
+| -------- | --- | --------------------------------- |
+| `ref`    | 11  | schema 内部 `$id` 改变基 URI 后的嵌套引用链解析 |
+| `anchor` | 4   | `$anchor` 在 `$id` 作用域变化下的查找       |
 
 例如：schema 中某节点的 `$id: "nested/foo.json"` 改变了该子树的基 URI，后续该子树内的 `$ref` 和 `$anchor` 需要基于新 URI 解析。我们的基础实现能处理常见场景，但在链式 URI 嵌套上尚不完整。
 

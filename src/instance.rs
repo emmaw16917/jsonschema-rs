@@ -1,14 +1,8 @@
 use serde_json::Value;
 use std::collections::HashSet;
 
-/// Traversal helpers for JSON instances.
-///
-/// These mirror utility patterns found in Python `jsonschema._utils`.
-
-/// Collect the set of property keys that have been "covered" by
-/// `properties`, `patternProperties`, or other schema-level declarations,
-/// so that `additionalProperties` / `unevaluatedProperties` can detect
-/// extras.
+/// 收集 `properties` 和 `patternProperties` 已覆盖的实例属性键，
+/// 供 `additionalProperties` / `unevaluatedProperties` 检测多余属性。
 pub fn known_property_keys(
     instance: &Value,
     properties: Option<&Value>,
@@ -23,31 +17,24 @@ pub fn known_property_keys(
     }
 
     if let Some(Value::Object(patterns)) = pattern_properties {
-        // We can't know which *instance* keys match a pattern until runtime,
-        // so we don't pre-fill here.  The caller must add keys that actually
-        // matched one of the patterns after the fact.
-        let _ = patterns; // consumed at runtime in additionalProperties
+        let _ = patterns;
     }
 
     if let Value::Object(obj) = instance {
-        // Start pessimistic — assume nothing is known unless declared above.
-        // We'll let the keyword implementation subtract.
         let _ = obj;
     }
 
     known
 }
 
-/// Returns `true` if `a` and `b` are deeply equal, handling `f64` NaN
-/// edge-cases (JSON forbids NaN, but defensive code handles it).
+/// 深度相等比较，额外处理 f64 NaN 边界情况。
 pub fn deep_equal(a: &Value, b: &Value) -> bool {
     match (a, b) {
         (Value::Number(na), Value::Number(nb)) => {
-            // Both are numbers — compare via f64 for consistency.
             match (na.as_f64(), nb.as_f64()) {
                 (Some(fa), Some(fb)) => {
                     if fa.is_nan() && fb.is_nan() {
-                        true // JSON doesn't produce NaN, but be defensive.
+                        true
                     } else {
                         (fa - fb).abs() < f64::EPSILON
                     }
@@ -59,9 +46,7 @@ pub fn deep_equal(a: &Value, b: &Value) -> bool {
     }
 }
 
-// ---------------------------------------------------------------------------
 // tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

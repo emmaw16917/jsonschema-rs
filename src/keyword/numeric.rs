@@ -3,17 +3,9 @@ use crate::keyword::Keyword;
 use crate::validator::ValidationContext;
 use serde_json::Value;
 
-// ---------------------------------------------------------------------------
-// Helper — extract a f64 from a JSON number, guarding non-numbers.
-// ---------------------------------------------------------------------------
-
 fn as_f64(v: &Value) -> Option<f64> {
     v.as_f64()
 }
-
-// ---------------------------------------------------------------------------
-// minimum
-// ---------------------------------------------------------------------------
 
 pub struct MinimumKeyword;
 impl Keyword for MinimumKeyword {
@@ -47,10 +39,6 @@ impl Keyword for MinimumKeyword {
     }
 }
 
-// ---------------------------------------------------------------------------
-// maximum
-// ---------------------------------------------------------------------------
-
 pub struct MaximumKeyword;
 impl Keyword for MaximumKeyword {
     fn name(&self) -> &'static str {
@@ -82,10 +70,6 @@ impl Keyword for MaximumKeyword {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// exclusiveMinimum
-// ---------------------------------------------------------------------------
 
 pub struct ExclusiveMinimumKeyword;
 impl Keyword for ExclusiveMinimumKeyword {
@@ -119,10 +103,6 @@ impl Keyword for ExclusiveMinimumKeyword {
     }
 }
 
-// ---------------------------------------------------------------------------
-// exclusiveMaximum
-// ---------------------------------------------------------------------------
-
 pub struct ExclusiveMaximumKeyword;
 impl Keyword for ExclusiveMaximumKeyword {
     fn name(&self) -> &'static str {
@@ -155,10 +135,6 @@ impl Keyword for ExclusiveMaximumKeyword {
     }
 }
 
-// ---------------------------------------------------------------------------
-// multipleOf
-// ---------------------------------------------------------------------------
-
 pub struct MultipleOfKeyword;
 impl Keyword for MultipleOfKeyword {
     fn name(&self) -> &'static str {
@@ -179,13 +155,8 @@ impl Keyword for MultipleOfKeyword {
         let val = as_f64(instance);
         match (divisor, val) {
             (Some(d), Some(v)) if d != 0.0 && d.is_finite() => {
-                // If divisor is extremely small relative to the value,
-                // floating-point division loses precision. Use a relative
-                // tolerance approach.
                 let quotient = v / d;
                 if !quotient.is_finite() {
-                    // Overflow — value is definitely not a valid multiple
-                    // (e.g., 1e308 / 0.123456789 = inf)
                     return vec![ValidationError::new(format!(
                         "{} is not a multiple of {}",
                         v, d
@@ -193,12 +164,8 @@ impl Keyword for MultipleOfKeyword {
                     .with_keyword("multipleOf")
                     .with_instance(instance.clone())];
                 }
-
-                // Check if quotient is close to an integer.
                 let nearest = quotient.round();
                 let diff = (quotient - nearest).abs();
-
-                // Use a scaled epsilon that accounts for magnitude.
                 let tolerance = f64::EPSILON * quotient.abs().max(1.0) * 100.0;
 
                 if diff > tolerance {
@@ -213,17 +180,12 @@ impl Keyword for MultipleOfKeyword {
                 }
             }
             (Some(d), _) if d == 0.0 => {
-                // multipleOf: 0 — anything is a multiple of 0 in JSON Schema
                 vec![]
             }
             _ => vec![],
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -274,7 +236,6 @@ mod tests {
 
     #[test]
     fn test_numeric_wrong_type_skips() {
-        // If instance is not a number, numeric keywords are skipped.
         let v = Validator::new(serde_json::json!({"minimum": 10}));
         assert!(v.is_valid(&Value::String("hello".into())));
     }

@@ -5,10 +5,6 @@ use crate::keyword::Keyword;
 use crate::validator::ValidationContext;
 use serde_json::Value;
 
-// ---------------------------------------------------------------------------
-// type
-// ---------------------------------------------------------------------------
-
 pub struct TypeKeyword;
 impl Keyword for TypeKeyword {
     fn name(&self) -> &'static str {
@@ -42,10 +38,6 @@ impl Keyword for TypeKeyword {
     }
 }
 
-// ---------------------------------------------------------------------------
-// enum
-// ---------------------------------------------------------------------------
-
 pub struct EnumKeyword;
 impl Keyword for EnumKeyword {
     fn name(&self) -> &'static str {
@@ -77,10 +69,6 @@ impl Keyword for EnumKeyword {
     }
 }
 
-// ---------------------------------------------------------------------------
-// const
-// ---------------------------------------------------------------------------
-
 pub struct ConstKeyword;
 impl Keyword for ConstKeyword {
     fn name(&self) -> &'static str {
@@ -106,10 +94,6 @@ impl Keyword for ConstKeyword {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

@@ -11,22 +11,11 @@ use crate::validator::ValidationContext;
 use serde_json::Value;
 use std::collections::HashMap;
 
-/// Every JSON Schema keyword validator implements this trait.
-///
-/// Mirrors the Python keyword validator function signature:
-/// `fn(validator, keyword_value, instance, schema) -> generator of ValidationError`
+/// 所有 JSON Schema 关键字校验器需实现此 trait。
 pub trait Keyword: Send + Sync {
-    /// The keyword name, e.g. `"type"`, `"properties"`, `"minimum"`.
     fn name(&self) -> &'static str;
 
-    /// Validate `instance` against this keyword's constraint.
-    ///
-    /// * `ctx` — the validation context (provides `is_type`, `descend`, etc.)
-    /// * `keyword_value` — the value of this keyword inside the schema
-    /// * `instance` — the JSON instance (fragment) being validated
-    /// * `schema` — the full schema object (needed by some combinators)
-    ///
-    /// Returns an empty `Vec` on success, or one or more `ValidationError`s.
+    /// 校验实例是否符合该关键字约束。成功返回空 Vec，否则返回错误列表。
     fn validate(
         &self,
         ctx: &ValidationContext,
@@ -36,17 +25,12 @@ pub trait Keyword: Send + Sync {
     ) -> Vec<ValidationError>;
 }
 
-// ---------------------------------------------------------------------------
-// KeywordRegistry
-// ---------------------------------------------------------------------------
-
-/// A collection of keyword implementations keyed by their JSON Schema name.
 pub struct KeywordRegistry {
     keywords: HashMap<String, Box<dyn Keyword>>,
 }
 
 impl KeywordRegistry {
-    /// Build a registry pre-populated with all Draft 2020-12 keywords.
+    /// 构建包含所有 Draft 2020-12 关键字的注册表。
     pub fn draft_2020_12() -> Self {
         let mut registry = Self {
             keywords: HashMap::new(),
@@ -111,28 +95,20 @@ impl KeywordRegistry {
         self.keywords.insert(name, Box::new(kw));
     }
 
-    /// Look up a keyword by name.
     pub fn get(&self, name: &str) -> Option<&dyn Keyword> {
         self.keywords.get(name).map(|b| b.as_ref())
     }
 
-    /// Number of registered keywords.
     pub fn len(&self) -> usize {
         self.keywords.len()
     }
 
-    /// Returns `true` if the registry is empty.
     pub fn is_empty(&self) -> bool {
         self.keywords.is_empty()
     }
 }
 
-// ---------------------------------------------------------------------------
-// Helper shared across keyword modules
-// ---------------------------------------------------------------------------
-
-/// Normalise a keyword value that may be a single string or an array of
-/// strings into a flat list.
+/// 将关键字值（单个字符串或字符串数组）归一化为字符串列表。
 pub(crate) fn ensure_string_list(value: &Value) -> Vec<String> {
     match value {
         Value::String(s) => vec![s.clone()],

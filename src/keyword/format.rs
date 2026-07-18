@@ -5,10 +5,7 @@ use regex::Regex;
 use serde_json::Value;
 use std::sync::LazyLock;
 
-// ---------------------------------------------------------------------------
-// Pre-compiled format validators (static to avoid re-compilation)
-// ---------------------------------------------------------------------------
-
+// 预编译的格式验证器（静态变量，避免重复编译）
 static DATE_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^\d{4}-\d{2}-\d{2}$").unwrap());
 
@@ -59,26 +56,18 @@ static UUID_RE: LazyLock<Regex> = LazyLock::new(|| {
 static JSON_POINTER_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"^(/([^/~]|~[01])*)*$").unwrap());
 
-// ---------------------------------------------------------------------------
-// Format validation logic
-// ---------------------------------------------------------------------------
-
 fn validate_format_value(format: &str, value: &str) -> bool {
     match format {
-        // Dates & times — regex validation
         "date" => DATE_RE.is_match(value),
         "time" => TIME_RE.is_match(value),
         "date-time" => DATE_TIME_RE.is_match(value),
 
-        // Email — regex validation
         "email" => EMAIL_RE.is_match(value),
-        "idn-email" => EMAIL_RE.is_match(value), // simplified
+        "idn-email" => EMAIL_RE.is_match(value),
 
-        // Hostnames
         "hostname" => HOSTNAME_RE.is_match(value) && value.len() <= 253,
-        "idn-hostname" => true, // IDN hostnames tricky — accept for now
+        "idn-hostname" => true,
 
-        // IP addresses
         "ipv4" => {
             if let Some(caps) = IPV4_RE.captures(value) {
                 caps.iter()
@@ -91,17 +80,14 @@ fn validate_format_value(format: &str, value: &str) -> bool {
         }
         "ipv6" => IPV6_RE.is_match(value),
 
-        // URIs
         "uri" => URI_RE.is_match(value),
-        "uri-reference" => true, // generous — accept anything
+        "uri-reference" => true,
         "iri" => URI_RE.is_match(value),
         "iri-reference" => true,
-        "uri-template" => value.contains('{'), // simplified
+        "uri-template" => value.contains('{'),
 
-        // UUID
         "uuid" => UUID_RE.is_match(value),
 
-        // JSON Pointer
         "json-pointer" => JSON_POINTER_RE.is_match(value) || value.is_empty(),
         "relative-json-pointer" => {
             value
@@ -113,29 +99,18 @@ fn validate_format_value(format: &str, value: &str) -> bool {
                 })
         }
 
-        // Duration — simplified ISO 8601 check
         "duration" => value.starts_with('P')
             && (value.contains('T') || value.contains('Y')
                 || value.contains('M') || value.contains('D')),
 
-        // Regex
         "regex" => regex::Regex::new(value).is_ok(),
-        "ecmascript-regex" => true, // ECMAScript regex — accept (different engine)
+        "ecmascript-regex" => true,
 
-        // Catch-all for unknown formats — accept
         _ => true,
     }
 }
 
-// ---------------------------------------------------------------------------
-// FormatKeyword
-// ---------------------------------------------------------------------------
-
-/// Implements the `format` keyword (JSON Schema Draft 2020-12 §7.2).
-///
-/// Note: format validation is *annotation-only* by default.  It only produces
-/// errors when the schema explicitly opts in via `$vocabulary` or the
-/// implementation chooses to validate by default (we do).
+/// 实现 `format` 关键字 (JSON Schema Draft 2020-12 §7.2)
 pub struct FormatKeyword;
 impl Keyword for FormatKeyword {
     fn name(&self) -> &'static str {
@@ -172,10 +147,6 @@ impl Keyword for FormatKeyword {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

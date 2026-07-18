@@ -4,9 +4,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process;
 
-/// A fast JSON Schema validator written in Rust.
-///
-/// Supports JSON Schema Draft 2020-12.
+/// 基于 Rust 的高性能 JSON Schema 校验工具，支持 Draft 2020-12。
 #[derive(Parser)]
 #[command(name = "jsonschema-rs", version, about)]
 struct Cli {
@@ -16,17 +14,17 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Validate a JSON instance against a JSON Schema.
+    /// 校验 JSON 实例是否符合 JSON Schema。
     Validate {
-        /// Path to the JSON Schema file.
+        /// JSON Schema 文件路径。
         #[arg(short, long)]
         schema: PathBuf,
 
-        /// Path to the JSON instance file to validate.
+        /// 待校验的 JSON 实例文件路径。
         #[arg(short, long)]
         data: PathBuf,
 
-        /// Output format: `text` (default) or `json`.
+        /// 输出格式：`text`（默认）或 `json`。
         #[arg(long, default_value = "text")]
         output: String,
     },

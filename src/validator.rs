@@ -7,49 +7,32 @@ use serde_json::Value;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-// ---------------------------------------------------------------------------
 // ValidationContext
-// ---------------------------------------------------------------------------
 
-/// The heart of the validation engine — carries all the state needed during a
-/// recursive validation walk.
-///
-/// Corresponds to Python's `Validator` class (the concrete instance created by
-/// `create()` factories in `validators.py`).
+/// 校验引擎核心，携带递归校验过程中所需的所有状态。
 pub struct ValidationContext<'a> {
-    /// Reference to the compiled schema being validated against.
     pub compiled: &'a CompiledSchema,
-
-    /// All registered keyword validators.
     pub registry: &'a KeywordRegistry,
-
-    /// Type checker used by the `type` keyword and other type-guards.
     pub type_checker: &'a TypeChecker,
-
-    /// Optional external schema registry for resolving `$ref` URIs.
     pub schema_registry: Option<&'a SchemaRegistry>,
 
-    /// Current position within the *instance* being validated.
-    /// E.g. `["properties", "items", "0"]`.
+    /// 当前在实例中的位置，如 `["properties", "items", "0"]`。
     pub instance_path: Vec<String>,
 
-    /// Current position within the *schema*.
-    /// E.g. `["properties", "name", "minLength"]`.
+    /// 当前在 schema 中的位置，如 `["properties", "name", "minLength"]`。
     pub schema_path: Vec<String>,
 
-    /// Pre-compiled regex patterns (extracted from `compiled` for convenience).
+    /// 预编译的正则表达式。
     pub precompiled: &'a HashMap<String, Regex>,
 
-    /// Guard against infinite recursion in `$ref` resolution.  Tracks the
-    /// `$ref` URIs that are currently being resolved on the call stack.
+    /// 防止 `$ref` 无限递归，记录当前调用栈中正在解析的 `$ref` URI。
     visited_refs: RefCell<Vec<String>>,
 
-    /// Maximum allowed recursive depth for `$ref` chains.
+    /// `$ref` 链的最大递归深度。
     max_ref_depth: usize,
 }
 
 impl<'a> ValidationContext<'a> {
-    /// Create a new root-level validation context.
     pub fn new(
         compiled: &'a CompiledSchema,
         registry: &'a KeywordRegistry,
@@ -69,17 +52,10 @@ impl<'a> ValidationContext<'a> {
         }
     }
 
-    // ------------------------------------------------------------------
     // Public validation API
-    // ------------------------------------------------------------------
 
-    /// Recursively validate `instance` against `schema`.
-    ///
-    /// Returns all validation errors found (empty Vec → valid).
-    ///
-    /// Analogous to Python `iter_errors()`.
+    /// 递归校验 `instance` 是否符合 `schema`，返回所有错误（空 Vec 表示通过）。
     pub fn iter_errors(&self, instance: &Value, schema: &Value) -> Vec<ValidationError> {
-        // Boolean schemas
         match schema {
             Value::Bool(true) => return vec![],
             Value::Bool(false) => {
@@ -88,16 +64,11 @@ impl<'a> ValidationContext<'a> {
             _ => {}
         }
 
-        // $ref resolution (handled before keyword dispatch)
         let effective_schema = if let Some(ref_val) = schema.get("$ref") {
             if let Some(ref_str) = ref_val.as_str() {
-                // Cycle detection: if we've already seen this $ref on the
-                // current call stack, skip it to avoid infinite recursion.
                 {
                     let visited = self.visited_refs.borrow();
                     if visited.contains(&ref_str.to_string()) {
-                        // Cycle detected — skip this $ref (the first occurrence
-                        // already validated against it).
                         return vec![];
                     }
                     if visited.len() >= self.max_ref_depth {
@@ -115,8 +86,6 @@ impl<'a> ValidationContext<'a> {
 
                 let result = if let Some(resolved) = self.resolve_ref(ref_str) {
                     let mut errors = self.iter_errors(instance, &resolved);
-                    // Continue processing remaining keywords in the same schema
-                    // object (keywords alongside $ref are allowed by the spec).
                     let remaining = self.collect_keyword_errors(
                         instance,
                         schema,
@@ -143,10 +112,7 @@ impl<'a> ValidationContext<'a> {
         self.collect_keyword_errors(instance, effective_schema, None)
     }
 
-    /// Validates `instance` against a child `schema`, pushing `path_component`
-    /// onto the instance path.
-    ///
-    /// Analogous to Python `descend()`.
+    /// 对子 schema 进行校验，将`path_component`追加到实例路径。
     pub fn descend(
         &self,
         instance: &Value,
@@ -171,22 +137,17 @@ impl<'a> ValidationContext<'a> {
         child.iter_errors(instance, schema)
     }
 
-    /// Shortcut: `is_type()` delegates to the type checker.
     pub fn is_type(&self, instance: &Value, type_name: &str) -> bool {
         self.type_checker.is_type(instance, type_name)
     }
 
-    /// Look up a pre-compiled regex pattern.
     pub fn get_compiled_pattern(&self, pattern: &str) -> Option<&Regex> {
         self.precompiled.get(pattern)
     }
 
-    // ------------------------------------------------------------------
     // Internal helpers
-    // ------------------------------------------------------------------
 
-    /// Iterate every key-value pair in `schema` that is a registered keyword,
-    /// call its `validate()` method, and collect errors.
+    /// 遍历 schema 中所有已注册关键字，调用其 `validate()` 并收集错误。
     fn collect_keyword_errors(
         &self,
         instance: &Value,
@@ -197,7 +158,6 @@ impl<'a> ValidationContext<'a> {
 
         if let Value::Object(obj) = schema {
             for (keyword_name, keyword_value) in obj {
-                // Skip the keyword we already handled (e.g. $ref).
                 if let Some(skip) = skip_keyword {
                     if keyword_name == skip {
                         continue;
@@ -208,14 +168,9 @@ impl<'a> ValidationContext<'a> {
                     let keyword_errors =
                         keyword.validate(self, keyword_value, instance, schema);
                     for mut err in keyword_errors {
-                        // Only set instance_path if the keyword didn't already
-                        // populate it (e.g. via descend()).
                         if err.instance_path.is_empty() {
                             err.instance_path = self.instance_path.clone();
                         }
-                        // If the keyword already set schema_path (e.g. nested
-                        // keywords like properties), prepend the parent path;
-                        // otherwise build it from the current context.
                         if err.schema_path.is_empty() {
                             err.schema_path = {
                                 let mut sp = self.schema_path.clone();
@@ -240,37 +195,32 @@ impl<'a> ValidationContext<'a> {
         errors
     }
 
-    /// Resolve a `$ref` string, first trying the schema registry (external),
-    /// then JSON Pointer or $anchor navigation within the root schema (internal).
+    /// 解析 `$ref` 字符串：先尝试外部 SchemaRegistry，再尝试内部 JSON Pointer / $anchor。
     fn resolve_ref(&self, ref_val: &str) -> Option<Value> {
-        // 1. Try the SchemaRegistry for external refs.
+        // 1. 尝试外部 SchemaRegistry。
         if let Some(reg) = self.schema_registry {
             if let Some(result) = reg.resolve(&self.compiled.raw, ref_val) {
                 return Some(result);
             }
         }
 
-        // 2. Fall back to internal resolution against the root schema.
+        // 2. 内部解析（以 '#' 开头）。
         if ref_val.starts_with('#') {
             let fragment = ref_val.trim_start_matches('#');
             if fragment.is_empty() {
                 return Some(self.compiled.raw.clone());
             }
-            // If fragment starts with '/', it's a JSON Pointer.
             if fragment.starts_with('/') {
                 return crate::refs::resolve_pointer(&self.compiled.raw, fragment);
             }
-            // Otherwise, treat it as an $anchor reference.
             return crate::refs::resolve_anchor(&self.compiled.raw, fragment);
         }
 
-        // 3. Try external refs that are full URIs containing a fragment
-        //    (e.g. "http://example.com/schema.json#foo").
+        // 3. 包含 fragment 的完整 URI（如 "http://example.com/schema.json#foo"）。
         if let Some(hash_pos) = ref_val.find('#') {
             let (uri, fragment) = ref_val.split_at(hash_pos);
             let fragment = fragment.trim_start_matches('#');
 
-            // Try resolving through the SchemaRegistry for the URI part.
             if let Some(reg) = self.schema_registry {
                 if let Some(doc) = reg.get(uri) {
                     if fragment.is_empty() {
@@ -283,7 +233,6 @@ impl<'a> ValidationContext<'a> {
                 }
             }
 
-            // Try finding a subschema with matching $id in the root schema.
             if let Some(doc) = crate::refs::find_by_id(&self.compiled.raw, uri) {
                 if fragment.is_empty() {
                     return Some(doc.clone());
@@ -295,7 +244,7 @@ impl<'a> ValidationContext<'a> {
             }
         }
 
-        // 4. Try finding a subschema by $id in the root schema.
+        // 4. 在根 schema 中按 $id 查找子 schema。
         if let Some(doc) = crate::refs::find_by_id(&self.compiled.raw, ref_val) {
             return Some(doc.clone());
         }
@@ -304,9 +253,7 @@ impl<'a> ValidationContext<'a> {
     }
 }
 
-// ---------------------------------------------------------------------------
 // tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -314,7 +261,6 @@ mod tests {
     use crate::types::CompiledSchema;
 
     fn make_ctx(schema: Value) -> ValidationContext<'static> {
-        // Leak to get 'static lifetime (acceptable in tests)
         let compiled: &'static CompiledSchema =
             Box::leak(Box::new(CompiledSchema::new(schema, HashMap::new())));
         let registry: &'static KeywordRegistry =

@@ -1,19 +1,6 @@
-//! Test suite runner for the official JSON Schema Test Suite.
-//!
-//! The test suite JSON files are expected under `tests/test_suite/`.
-//! They can be obtained from:
-//! <https://github.com/json-schema-org/JSON-Schema-Test-Suite>
-//!
-//! Each file contains an array of objects like:
-//! ```json
-//! {
-//!   "description": "...",
-//!   "schema": { ... },
-//!   "tests": [
-//!     { "description": "...", "data": { ... }, "valid": true }
-//!   ]
-//! }
-//! ```
+//! JSON Schema 官方测试套件执行器
+//! 测试文件位于 `tests/test_suite/`，可从
+//! <https://github.com/json-schema-org/JSON-Schema-Test-Suite> 获取
 
 use jsonschema_rs::Validator;
 use serde::Deserialize;

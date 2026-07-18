@@ -3,10 +3,6 @@ use crate::keyword::Keyword;
 use crate::validator::ValidationContext;
 use serde_json::Value;
 
-// ---------------------------------------------------------------------------
-// allOf
-// ---------------------------------------------------------------------------
-
 pub struct AllOfKeyword;
 impl Keyword for AllOfKeyword {
     fn name(&self) -> &'static str {
@@ -36,10 +32,6 @@ impl Keyword for AllOfKeyword {
         errors
     }
 }
-
-// ---------------------------------------------------------------------------
-// anyOf
-// ---------------------------------------------------------------------------
 
 pub struct AnyOfKeyword;
 impl Keyword for AnyOfKeyword {
@@ -72,10 +64,6 @@ impl Keyword for AnyOfKeyword {
         .with_instance(instance.clone())]
     }
 }
-
-// ---------------------------------------------------------------------------
-// oneOf
-// ---------------------------------------------------------------------------
 
 pub struct OneOfKeyword;
 impl Keyword for OneOfKeyword {
@@ -119,10 +107,6 @@ impl Keyword for OneOfKeyword {
     }
 }
 
-// ---------------------------------------------------------------------------
-// not
-// ---------------------------------------------------------------------------
-
 pub struct NotKeyword;
 impl Keyword for NotKeyword {
     fn name(&self) -> &'static str {
@@ -137,7 +121,6 @@ impl Keyword for NotKeyword {
         _schema: &Value,
     ) -> Vec<ValidationError> {
         if ctx.iter_errors(instance, sub_schema).is_empty() {
-            // Matched — which is wrong for "not".
             vec![ValidationError::new("instance should not be valid against `not` schema")
                 .with_keyword("not")
                 .with_instance(instance.clone())]
@@ -147,16 +130,6 @@ impl Keyword for NotKeyword {
     }
 }
 
-// ---------------------------------------------------------------------------
-// if
-// ---------------------------------------------------------------------------
-
-/// The `if` keyword does not produce errors on its own; it only signals
-/// whether `then` or `else` should be applied.  We track this via a flag
-/// that `then`/`else` can read.
-///
-/// Implementation note: we evaluate `if` inline here so that `then`/`else`
-/// keyword validators can simply check `if_passed`.
 pub struct IfKeyword;
 impl Keyword for IfKeyword {
     fn name(&self) -> &'static str {
@@ -170,21 +143,12 @@ impl Keyword for IfKeyword {
         instance: &Value,
         _schema: &Value,
     ) -> Vec<ValidationError> {
-        // `if` itself never produces user-visible errors.
-        // It is recorded as a side-effect: the `then` / `else` keywords will
-        // re-evaluate the `if` sub-schema themselves (to avoid shared mutable
-        // state).  So this implementation is a no-op — the work is done in
-        // `then` and `else`.
         let _ = ctx;
         let _ = sub_schema;
         let _ = instance;
         vec![]
     }
 }
-
-// ---------------------------------------------------------------------------
-// then
-// ---------------------------------------------------------------------------
 
 pub struct ThenKeyword;
 impl Keyword for ThenKeyword {
@@ -199,25 +163,20 @@ impl Keyword for ThenKeyword {
         instance: &Value,
         schema: &Value,
     ) -> Vec<ValidationError> {
-        // Only applies if `if` sub-schema passed.
         let if_schema = match schema.get("if") {
             Some(s) => s,
-            None => return vec![], // no "if" → "then" has no effect
+            None => return vec![],
         };
 
         let if_passed = ctx.iter_errors(instance, if_schema).is_empty();
         if !if_passed {
-            return vec![]; // "if" failed → "then" is skipped
+            return vec![];
         }
 
         let errors = ctx.iter_errors(instance, then_schema);
         errors
     }
 }
-
-// ---------------------------------------------------------------------------
-// else
-// ---------------------------------------------------------------------------
 
 pub struct ElseKeyword;
 impl Keyword for ElseKeyword {
@@ -232,25 +191,20 @@ impl Keyword for ElseKeyword {
         instance: &Value,
         schema: &Value,
     ) -> Vec<ValidationError> {
-        // Only applies if `if` sub-schema **failed**.
         let if_schema = match schema.get("if") {
             Some(s) => s,
-            None => return vec![], // no "if" → "else" has no effect
+            None => return vec![],
         };
 
         let if_passed = ctx.iter_errors(instance, if_schema).is_empty();
         if if_passed {
-            return vec![]; // "if" passed → "else" is skipped
+            return vec![];
         }
 
         let errors = ctx.iter_errors(instance, else_schema);
         errors
     }
 }
-
-// ---------------------------------------------------------------------------
-// tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -293,8 +247,6 @@ mod tests {
         }));
         assert!(v.is_valid(&Value::String("hi".into())));
         assert!(v.is_valid(&serde_json::json!(42)));
-        // Fails because 42 matches BOTH {"type": "integer"} AND {"type": "number"}... wait no.
-        // Let's test with a value that matches both: 42 matches "integer" and "number" types.
     }
 
     #[test]
@@ -305,7 +257,6 @@ mod tests {
                 {"type": "number"}
             ]
         }));
-        // 42 matches BOTH — should fail.
         assert!(!v.is_valid(&serde_json::json!(42)));
     }
 
@@ -324,11 +275,8 @@ mod tests {
             "if": {"type": "string"},
             "then": {"minLength": 5}
         }));
-        // string with length >= 5 → OK
         assert!(v.is_valid(&Value::String("hello".into())));
-        // string with length < 5 → then fails
         assert!(!v.is_valid(&Value::String("hi".into())));
-        // not a string → if fails, then is skipped → OK
         assert!(v.is_valid(&serde_json::json!(42)));
     }
 
@@ -338,9 +286,7 @@ mod tests {
             "if": {"type": "string"},
             "else": {"type": "integer"}
         }));
-        // not a string → else applies → must be integer
         assert!(v.is_valid(&serde_json::json!(42)));
-        // not a string AND not integer → else fails
         assert!(!v.is_valid(&serde_json::json!(true)));
     }
 }

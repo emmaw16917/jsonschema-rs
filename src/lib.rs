@@ -1,12 +1,8 @@
 //! # jsonschema-rs
 //!
-//! A fast JSON Schema validator written in Rust, designed as a drop-in
-//! replacement for the Python [`jsonschema`](https://github.com/python-jsonschema/jsonschema)
-//! library.
+//! 一个高性能 JSON Schema 校验器，支持 Draft 2020-12。
 //!
-//! Supports **JSON Schema Draft 2020-12**.
-//!
-//! ## Quick example
+//! ## 快速示例
 //!
 //! ```rust
 //! use jsonschema_rs::Validator;
@@ -29,18 +25,18 @@
 //! assert!(!validator.is_valid(&invalid));
 //! ```
 //!
-//! ## Supported keywords
+//! ## 支持的关键字
 //!
-//! - **Assertions:** `type`, `enum`, `const`
-//! - **Numeric:** `minimum`, `maximum`, `exclusiveMinimum`,
+//! - **断言:** `type`, `enum`, `const`
+//! - **数值:** `minimum`, `maximum`, `exclusiveMinimum`,
 //!   `exclusiveMaximum`, `multipleOf`
-//! - **String:** `minLength`, `maxLength`, `pattern`
-//! - **Objects:** `properties`, `required`, `additionalProperties`,
+//! - **字符串:** `minLength`, `maxLength`, `pattern`
+//! - **对象:** `properties`, `required`, `additionalProperties`,
 //!   `patternProperties`, `propertyNames`, `minProperties`, `maxProperties`
-//! - **Arrays:** `items`, `prefixItems`, `minItems`, `maxItems`,
+//! - **数组:** `items`, `prefixItems`, `minItems`, `maxItems`,
 //!   `uniqueItems`, `contains`
-//! - **Applicators:** `allOf`, `anyOf`, `oneOf`, `not`, `if`/`then`/`else`
-//! - **References:** `$ref` (internal + external via `SchemaRegistry`)
+//! - **组合:** `allOf`, `anyOf`, `oneOf`, `not`, `if`/`then`/`else`
+//! - **引用:** `$ref`（内部 + 外部，通过 `SchemaRegistry`）
 
 pub mod compiler;
 pub mod error;
@@ -50,7 +46,7 @@ pub mod refs;
 pub mod types;
 pub mod validator;
 
-// Re-export the main user-facing types.
+// 重导出主要公开类型
 pub use compiler::Validator;
 pub use error::ValidationError;
 pub use refs::SchemaRegistry;

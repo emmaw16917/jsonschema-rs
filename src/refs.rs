@@ -1,34 +1,26 @@
 use serde_json::Value;
 use std::collections::HashMap;
 
-/// A registry that caches JSON Schema documents by their `$id`, and can
-/// resolve `$ref` URIs (including JSON Pointer fragments) against them.
-///
-/// Corresponds to Python `jsonschema`'s `RefResolver`.
+//按 `$id` 缓存 JSON Schema 文档，支持解析 `$ref` URI（含 JSON Pointer 片段）。
 #[derive(Debug, Default)]
 pub struct SchemaRegistry {
-    /// Mapping from resolved URI → schema document.
     pub(crate) store: HashMap<String, Value>,
 }
 
 impl SchemaRegistry {
-    /// Register a schema document under the given URI.
+    //注册一个 schema 文档（关联给定 URI）。
     pub fn add(&mut self, uri: impl Into<String>, schema: Value) {
         self.store.insert(uri.into(), schema);
     }
 
-    /// Look up a document by URI.
+    //按 URI 查找文档。
     pub fn get(&self, uri: &str) -> Option<&Value> {
         self.store.get(uri)
     }
 
-    /// Resolve a `$ref` string (e.g. `"#/definitions/Foo"` or
-    /// `"/schemas/geo.json#"`) relative to `base_doc`.
-    ///
-    /// Returns `None` if the reference cannot be resolved.
+    //解析 `$ref` 字符串，返回 `None` 表示无法解析。
     pub fn resolve(&self, base_doc: &Value, ref_val: &str) -> Option<Value> {
         if ref_val.starts_with('#') {
-            // Internal reference — could be JSON Pointer or anchor.
             let fragment = ref_val.trim_start_matches('#');
             if fragment.is_empty() {
                 return Some(base_doc.clone());
@@ -38,7 +30,6 @@ impl SchemaRegistry {
             }
             return resolve_anchor(base_doc, fragment);
         } else if let Some(hash_pos) = ref_val.find('#') {
-            // External reference with fragment.
             let (uri, pointer) = ref_val.split_at(hash_pos);
             let doc = self.store.get(uri)?;
             let pointer = pointer.trim_start_matches('#');
@@ -50,13 +41,12 @@ impl SchemaRegistry {
                 resolve_anchor(doc, pointer)
             }
         } else {
-            // External reference without fragment — whole document.
             self.store.get(ref_val).cloned()
         }
     }
 }
 
-/// Walk the schema tree and find a node whose `$id` matches the given URI.
+//遍历 schema 树，查找 `$id` 匹配给定 URI 的节点。
 pub fn find_by_id(doc: &Value, target_id: &str) -> Option<Value> {
     if let Value::Object(obj) = doc {
         if let Some(Value::String(id)) = obj.get("$id") {
@@ -79,13 +69,7 @@ pub fn find_by_id(doc: &Value, target_id: &str) -> Option<Value> {
     None
 }
 
-/// Walk a JSON Pointer (RFC 6901) string against a document, returning the
-/// value at that path.
-///
-/// Examples:
-/// * `"/definitions/Foo"` → `doc["definitions"]["Foo"]`
-/// * `"/items/0"` → `doc["items"][0]`
-/// * `"/a/b~1c"` → `doc["a"]["b/c"]`  (escaped `/` as `~1`)
+/// 按 JSON Pointer（RFC 6901）路径定位文档中的值。
 pub fn resolve_pointer(doc: &Value, pointer: &str) -> Option<Value> {
     if pointer.is_empty() {
         return Some(doc.clone());
@@ -93,7 +77,7 @@ pub fn resolve_pointer(doc: &Value, pointer: &str) -> Option<Value> {
 
     let segments = pointer
         .split('/')
-        .skip(1) // first segment is empty because pointer starts with '/'
+        .skip(1)
         .map(unescape_json_pointer);
 
     let mut current = doc;
@@ -110,23 +94,16 @@ pub fn resolve_pointer(doc: &Value, pointer: &str) -> Option<Value> {
     Some(current.clone())
 }
 
-/// Resolve an `$anchor` reference by walking the schema tree and returning
-/// the value whose `$anchor` matches `anchor_name`.
-///
-/// This searches the entire schema tree (respecting `$id` boundaries).
+/// 解析 `$anchor` 引用：遍历 schema 树，返回 `$anchor` 匹配的节点。
 pub fn resolve_anchor(doc: &Value, anchor_name: &str) -> Option<Value> {
-    // The anchor name for "$ref": "#foo" is just "foo"
-    // But it might also come in as "#foo" — strip the '#' if present.
     let name = anchor_name.trim_start_matches('#');
     if name.is_empty() {
         return Some(doc.clone());
     }
-    // Delegate to recursive search
     search_anchor(doc, name)
 }
 
 fn search_anchor(node: &Value, name: &str) -> Option<Value> {
-    // Check if this node itself has the matching $anchor
     if let Value::Object(obj) = node {
         if let Some(Value::String(a)) = obj.get("$anchor") {
             if a == name {
@@ -135,12 +112,9 @@ fn search_anchor(node: &Value, name: &str) -> Option<Value> {
         }
     }
 
-    // Recurse into children
     match node {
         Value::Object(obj) => {
-            // Skip $ref nodes as they point elsewhere
             if obj.contains_key("$ref") {
-                // Still need to check $defs and other sub-schemas
                 for val in obj.values() {
                     if let result @ Some(_) = search_anchor(val, name) {
                         return result;
@@ -150,8 +124,6 @@ fn search_anchor(node: &Value, name: &str) -> Option<Value> {
             }
 
             for (key, val) in obj {
-                // Don't recurse into $ref destinations — anchors are
-                // defined in the schema structure, not inside $ref targets.
                 if key == "$ref" {
                     continue;
                 }
@@ -159,7 +131,6 @@ fn search_anchor(node: &Value, name: &str) -> Option<Value> {
                     return result;
                 }
             }
-            // Also check the node itself in case it has $anchor and children
             None
         }
         Value::Array(arr) => {
@@ -174,19 +145,12 @@ fn search_anchor(node: &Value, name: &str) -> Option<Value> {
     }
 }
 
-/// Unescape a single JSON Pointer reference token.
-///
-/// `~1` → `/`
-/// `~0` → `~`
-/// `~` followed by anything else is invalid per RFC 6901; we treat it
-/// literally.
+/// JSON Pointer 转义字符反转：`~1` → `/`，`~0` → `~`。
 fn unescape_json_pointer(token: &str) -> String {
     token.replace("~1", "/").replace("~0", "~")
 }
 
-// ---------------------------------------------------------------------------
 // tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

@@ -1,5 +1,5 @@
-/// Standalone performance benchmark for jsonschema-rs.
-/// Run with: cargo run --release --bin perf_test
+/// jsonschema-rs 性能基准测试
+/// 运行: cargo run --release --bin perf_test
 use std::time::Instant;
 
 fn main() {
@@ -8,13 +8,12 @@ fn main() {
     println!("╚══════════════════════════════════════════════════════╝");
     println!();
 
-    // ── Test 1: Simple type check ──────────────────────────────────────
+    // 测试 1: 简单类型检查
     {
         let schema = serde_json::json!({"type": "string"});
         let v = jsonschema_rs::Validator::new(schema);
         let data = serde_json::Value::String("hello world".into());
 
-        // warmup
         for _ in 0..50000 {
             v.is_valid(&data);
         }
@@ -33,7 +32,7 @@ fn main() {
         );
     }
 
-    // ── Test 2: Object with properties ─────────────────────────────────
+    // 测试 2: 带属性的对象
     {
         let schema = serde_json::json!({
             "type": "object",
@@ -67,7 +66,7 @@ fn main() {
         );
     }
 
-    // ── Test 3: Object — invalid (early exit) ──────────────────────────
+    // 测试 3: 对象 — 无效（提前退出）
     {
         let schema = serde_json::json!({
             "type": "object",
@@ -98,7 +97,7 @@ fn main() {
         );
     }
 
-    // ── Test 4: Nested allOf combinators ───────────────────────────────
+    // 测试 4: 嵌套 allOf 组合器
     {
         let schema = serde_json::json!({
             "allOf": [
@@ -128,7 +127,7 @@ fn main() {
         );
     }
 
-    // ── Test 5: Large object 100 fields ────────────────────────────────
+    // 测试 5: 100 字段的大对象
     {
         let schema = {
             let props: serde_json::map::Map<String, serde_json::Value> = (0..100)
@@ -167,7 +166,7 @@ fn main() {
         );
     }
 
-    // ── Test 6: Nested array (20 items) ────────────────────────────────
+    // 测试 6: 20 个元素的嵌套数组
     {
         let schema = serde_json::json!({
             "type": "array",
@@ -207,7 +206,7 @@ fn main() {
         );
     }
 
-    // ── Test 7: oneOf combinator ───────────────────────────────────────
+    // 测试 7: oneOf 组合器
     {
         let schema = serde_json::json!({
             "oneOf": [
@@ -235,7 +234,7 @@ fn main() {
         );
     }
 
-    // ── Test 8: Schema with pattern (regex) ────────────────────────────
+    // 测试 8: 带 pattern (regex) 的 schema
     {
         let schema = serde_json::json!({
             "type": "object",

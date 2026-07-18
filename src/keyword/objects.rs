@@ -3,10 +3,6 @@ use crate::keyword::Keyword;
 use crate::validator::ValidationContext;
 use serde_json::Value;
 
-// ---------------------------------------------------------------------------
-// properties
-// ---------------------------------------------------------------------------
-
 pub struct PropertiesKeyword;
 impl Keyword for PropertiesKeyword {
     fn name(&self) -> &'static str {
@@ -28,7 +24,6 @@ impl Keyword for PropertiesKeyword {
         if let Value::Object(props) = properties {
             for (prop_name, sub_schema) in props {
                 if let Some(prop_value) = instance.get(prop_name) {
-                    // descend into the child instance
                     let child_errors = ctx.descend(prop_value, sub_schema, prop_name);
                     for mut err in child_errors {
                         err.schema_path.insert(0, prop_name.clone());
@@ -40,10 +35,6 @@ impl Keyword for PropertiesKeyword {
         errors
     }
 }
-
-// ---------------------------------------------------------------------------
-// required
-// ---------------------------------------------------------------------------
 
 pub struct RequiredKeyword;
 impl Keyword for RequiredKeyword {
@@ -83,10 +74,6 @@ impl Keyword for RequiredKeyword {
     }
 }
 
-// ---------------------------------------------------------------------------
-// additionalProperties
-// ---------------------------------------------------------------------------
-
 pub struct AdditionalPropertiesKeyword;
 impl Keyword for AdditionalPropertiesKeyword {
     fn name(&self) -> &'static str {
@@ -106,14 +93,12 @@ impl Keyword for AdditionalPropertiesKeyword {
 
         let obj = instance.as_object().unwrap();
 
-        // Collect keys covered by "properties".
         let covered_keys = schema
             .get("properties")
             .and_then(|v| v.as_object())
             .map(|props| props.keys().cloned().collect::<Vec<_>>())
             .unwrap_or_default();
 
-        // Also collect keys covered by "patternProperties" (runtime match).
         let pattern_covered: Vec<String> = {
             let mut matches = Vec::new();
             if let Some(Value::Object(patterns)) = schema.get("patternProperties") {
@@ -137,7 +122,6 @@ impl Keyword for AdditionalPropertiesKeyword {
                 continue;
             }
 
-            // additionalProperties: false → reject any extra
             if additional == &Value::Bool(false) {
                 errors.push(
                     ValidationError::new(format!(
@@ -148,19 +132,13 @@ impl Keyword for AdditionalPropertiesKeyword {
                     .with_instance(instance.clone()),
                 );
             } else if additional.is_object() {
-                // additionalProperties with a schema → validate the value
                 let child_errors = ctx.descend(&obj[key], additional, key);
                 errors.extend(child_errors);
             }
-            // additionalProperties: true → allow (silent)
         }
         errors
     }
 }
-
-// ---------------------------------------------------------------------------
-// patternProperties
-// ---------------------------------------------------------------------------
 
 pub struct PatternPropertiesKeyword;
 impl Keyword for PatternPropertiesKeyword {
@@ -207,10 +185,6 @@ impl Keyword for PatternPropertiesKeyword {
     }
 }
 
-// ---------------------------------------------------------------------------
-// propertyNames
-// ---------------------------------------------------------------------------
-
 pub struct PropertyNamesKeyword;
 impl Keyword for PropertyNamesKeyword {
     fn name(&self) -> &'static str {
@@ -243,10 +217,6 @@ impl Keyword for PropertyNamesKeyword {
     }
 }
 
-// ---------------------------------------------------------------------------
-// minProperties
-// ---------------------------------------------------------------------------
-
 pub struct MinPropertiesKeyword;
 impl Keyword for MinPropertiesKeyword {
     fn name(&self) -> &'static str {
@@ -277,10 +247,6 @@ impl Keyword for MinPropertiesKeyword {
         vec![]
     }
 }
-
-// ---------------------------------------------------------------------------
-// maxProperties
-// ---------------------------------------------------------------------------
 
 pub struct MaxPropertiesKeyword;
 impl Keyword for MaxPropertiesKeyword {
@@ -313,10 +279,6 @@ impl Keyword for MaxPropertiesKeyword {
     }
 }
 
-// ---------------------------------------------------------------------------
-// dependentRequired
-// ---------------------------------------------------------------------------
-
 pub struct DependentRequiredKeyword;
 impl Keyword for DependentRequiredKeyword {
     fn name(&self) -> &'static str {
@@ -343,7 +305,6 @@ impl Keyword for DependentRequiredKeyword {
         let mut errors = Vec::new();
 
         for (prop_name, required_arr) in deps {
-            // Only check if the property is present in the instance
             if !obj.contains_key(prop_name) {
                 continue;
             }
@@ -371,10 +332,6 @@ impl Keyword for DependentRequiredKeyword {
         errors
     }
 }
-
-// ---------------------------------------------------------------------------
-// dependentSchemas
-// ---------------------------------------------------------------------------
 
 pub struct DependentSchemasKeyword;
 impl Keyword for DependentSchemasKeyword {
@@ -416,10 +373,6 @@ impl Keyword for DependentSchemasKeyword {
     }
 }
 
-// ---------------------------------------------------------------------------
-// dependencies (legacy Draft 4/6/7 — compatibility)
-// ---------------------------------------------------------------------------
-
 pub struct DependenciesKeyword;
 impl Keyword for DependenciesKeyword {
     fn name(&self) -> &'static str {
@@ -446,13 +399,11 @@ impl Keyword for DependenciesKeyword {
         let mut errors = Vec::new();
 
         for (prop_name, dep_value) in deps {
-            // Only check if the property is present in the instance
             if !obj.contains_key(prop_name) {
                 continue;
             }
 
             if let Value::Array(required) = dep_value {
-                // Array form — like dependentRequired
                 for req_val in required {
                     if let Some(key) = req_val.as_str() {
                         if !obj.contains_key(key) {
@@ -468,7 +419,6 @@ impl Keyword for DependenciesKeyword {
                     }
                 }
             } else {
-                // Schema form — like dependentSchemas
                 let child_errors = ctx.iter_errors(instance, dep_value);
                 for mut err in child_errors {
                     err.schema_path.insert(0, prop_name.clone());
@@ -479,10 +429,6 @@ impl Keyword for DependenciesKeyword {
         errors
     }
 }
-
-// ---------------------------------------------------------------------------
-// tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {

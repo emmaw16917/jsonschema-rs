@@ -3,10 +3,6 @@ use crate::keyword::Keyword;
 use crate::validator::ValidationContext;
 use serde_json::Value;
 
-// ---------------------------------------------------------------------------
-// minLength
-// ---------------------------------------------------------------------------
-
 pub struct MinLengthKeyword;
 impl Keyword for MinLengthKeyword {
     fn name(&self) -> &'static str {
@@ -38,10 +34,6 @@ impl Keyword for MinLengthKeyword {
         vec![]
     }
 }
-
-// ---------------------------------------------------------------------------
-// maxLength
-// ---------------------------------------------------------------------------
 
 pub struct MaxLengthKeyword;
 impl Keyword for MaxLengthKeyword {
@@ -75,10 +67,6 @@ impl Keyword for MaxLengthKeyword {
     }
 }
 
-// ---------------------------------------------------------------------------
-// pattern
-// ---------------------------------------------------------------------------
-
 pub struct PatternKeyword;
 impl Keyword for PatternKeyword {
     fn name(&self) -> &'static str {
@@ -98,16 +86,11 @@ impl Keyword for PatternKeyword {
         let s = instance.as_str().unwrap();
         let pattern_str = pattern.as_str().unwrap();
 
-        // Use pre-compiled regex if available; fall back to on-the-fly
-        // compilation for dynamic patterns.
         let matched = if let Some(re) = ctx.get_compiled_pattern(pattern_str) {
             re.is_match(s)
         } else if let Ok(re) = regex::Regex::new(pattern_str) {
             re.is_match(s)
         } else {
-            // Invalid regex — treat as a schema error, not an instance error.
-            // The schema should have been validated against the meta-schema
-            // first.  For now, skip.
             return vec![];
         };
 
@@ -123,10 +106,6 @@ impl Keyword for PatternKeyword {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// tests
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -154,7 +133,6 @@ mod tests {
 
     #[test]
     fn test_min_length_unicode() {
-        // CJK characters: 2 chars, not 2 bytes
         let v = Validator::new(serde_json::json!({"minLength": 2}));
         assert!(v.is_valid(&Value::String("中文".into())));
         assert!(!v.is_valid(&Value::String("中".into())));

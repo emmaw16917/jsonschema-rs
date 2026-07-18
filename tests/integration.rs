@@ -36,7 +36,7 @@ fn test_full_person_schema() {
 
     let validator = Validator::new(schema);
 
-    // Valid case
+    // 有效
     assert!(validator.is_valid(&serde_json::json!({
         "name": "Alice",
         "age": 30,
@@ -44,25 +44,25 @@ fn test_full_person_schema() {
         "tags": ["rust", "json"]
     })));
 
-    // Missing required field
+    // 缺少必填字段
     assert!(!validator.is_valid(&serde_json::json!({
         "name": "Alice"
     })));
 
-    // Wrong types
+    // 类型错误
     assert!(!validator.is_valid(&serde_json::json!({
         "name": "Alice",
         "age": "thirty",
         "email": "alice@example.com"
     })));
 
-    // Pattern mismatch
+    // 模式不匹配
     assert!(!validator.is_valid(&serde_json::json!({
         "name": "Alice",
         "email": "notanemail"
     })));
 
-    // Duplicate items
+    // 重复元素
     assert!(!validator.is_valid(&serde_json::json!({
         "name": "Alice",
         "email": "a@b.c",
@@ -141,28 +141,26 @@ fn test_combinators() {
 
     let validator = Validator::new(schema);
 
-    // Valid circle
+    // 有效的圆形
     assert!(validator.is_valid(&serde_json::json!({
         "type": "circle",
         "radius": 5.0
     })));
 
-    // Valid rectangle
+    // 有效的矩形
     assert!(validator.is_valid(&serde_json::json!({
         "type": "rectangle",
         "width": 10,
         "height": 20
     })));
 
-    // Missing required radius for circle
+    // 圆形缺少必填的 radius
     assert!(!validator.is_valid(&serde_json::json!({
         "type": "circle"
     })));
 
-    // An instance that genuinely matches both oneOf schemas:
-    // A circle that also has width/height — but rectangle schema requires
-    // type=rectangle, so it only matches circle.  Use a dedicated test
-    // (one_of_matches_both) for the multi-match case.
+    // 此实例同时匹配两个 oneOf schema：
+    // 带有 width/height 的圆形，但矩形 schema 要求 type=rectangle，因此仅匹配圆形。
     assert!(validator.is_valid(&serde_json::json!({
         "type": "circle",
         "radius": 5,
@@ -186,19 +184,19 @@ fn test_if_then_else() {
 
     let validator = Validator::new(schema);
 
-    // US zip (5 digits)
+    // 美国邮编（5位数字）
     assert!(validator.is_valid(&serde_json::json!({
         "country": "US",
         "zip": "12345"
     })));
 
-    // US zip wrong format
+    // 美国邮编格式错误
     assert!(!validator.is_valid(&serde_json::json!({
         "country": "US",
         "zip": "AB12CD"
     })));
 
-    // Non-US zip (alphanumeric 4-10 chars)
+    // 非美国邮编（4-10位字母数字）
     assert!(validator.is_valid(&serde_json::json!({
         "country": "CA",
         "zip": "K1A0B1"
@@ -239,8 +237,7 @@ fn test_contains() {
 
 #[test]
 fn test_boolean_schema() {
-    // JSON Schema allows `true` (everything passes) and `false` (nothing
-    // passes) as schemas.
+    // JSON Schema 允许 `true`（全部通过）和 `false`（全部不通过）作为 schema
     let v_true = Validator::new(Value::Bool(true));
     assert!(v_true.is_valid(&serde_json::json!(42)));
     assert!(v_true.is_valid(&Value::Null));
@@ -268,7 +265,7 @@ fn test_iter_errors_returns_multiple() {
         "age": -1
     }));
 
-    // Should have multiple errors: minLength violation, age minimum violation
+    // 应包含多个错误：minLength 违规、age minimum 违规
     assert!(errors.len() >= 2, "Expected at least 2 errors, got {}", errors.len());
     assert!(errors.iter().any(|e| e.keyword.as_deref() == Some("minLength")));
     assert!(errors.iter().any(|e| e.keyword.as_deref() == Some("minimum")));
